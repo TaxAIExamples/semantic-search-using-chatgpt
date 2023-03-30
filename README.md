@@ -1,2 +1,4 @@
-# semantic-search-using-chatgpt
-Example of a Semantic Search Engine Using Chat GPT 
+# Semantic Search Using ChatGPT
+This repository has all the code and documentation for an example of a Semantic Search Engine Using Chat GPT for a fictituous Tax Administration for the fictitiuous country of Laurania.  
+
+Laurania is a fictional country created for the purpose of examples and case studies in various fields, such as tax administration, economics, legal systems, and public administration. It serves as a neutral and imaginary territory, allowing professionals and educators to develop and discuss hypothetical scenarios without referring to any specific real-world country or jurisdiction. In the context of tax administration, Laurania may have its own tax laws, regulations, and policies that can be used to illustrate concepts or explore issues related to taxation, compliance, enforcement, and international tax treaties. By using Laurania as an example, professionals can avoid potential biases and focus on the principles and best practices that can be applied universally. Please note that any details about Laurania's geography, political structure, or economic system are entirely fictitious and are created for educational purposes only.
