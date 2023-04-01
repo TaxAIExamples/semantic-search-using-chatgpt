@@ -7,4 +7,4 @@ The code that is published here runs on .NET Core.  I used Visual Studio Communi
 
 Inside the solution are three projects:  ChatGPTInterface handles all the interaction with ChatGPT, KnowledgeBaseManager is a Windows Forms appication that is used to pupulate the knowledge base, SemanticSearch is a Windows Forms application that is used to query ChatGPT with questions about our knowledgbase.
 
-
+To build the Database, open the solution, adjust the connection string in the appsettings.json configuration strings, then make sure that the ChatGPTInterface project is set as the Default project.  Then open the PackageManagerConsole and type update-database.  Then, run the system.
