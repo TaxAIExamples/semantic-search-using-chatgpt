@@ -2,6 +2,7 @@ using Azure;
 using ChatGPTInterface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using SemanticSearch;
 using System.ComponentModel;
 using System.Configuration;
 using System.Data;
@@ -12,15 +13,23 @@ namespace TrainingDataChatGPTApp
 {
     public partial class MainSearchForm : Form
     {
-        private KnowledgeRecordManager? recordManager;
+        private IKnowledgeRecordManager _recordManager;
         private string searchTerm;
         private int selectedId = 0;
         private readonly IConfiguration _configuration;
+        private readonly IChatGPT _chatGPT;
 
-        public MainSearchForm(IConfiguration configuration)
+        public MainSearchForm(
+            IConfiguration configuration, 
+            IChatGPT chatGPT,
+            IKnowledgeRecordManager recordManager
+            )
         {
             InitializeComponent();
             _configuration = configuration;
+            _chatGPT = chatGPT;
+            _recordManager = recordManager;
+            contextPanel.Visible = false;
         }
 
         protected override void OnLoad(EventArgs e)
@@ -62,19 +71,31 @@ namespace TrainingDataChatGPTApp
             // Set cursor as hourglass
             Cursor.Current = Cursors.WaitCursor;
             chatGPTAnswerTextBox.Text = "";
+            contextPanel.Visible = false;
+            contextDetailTextBox.Text = "";
+            contextListBox.DataSource = null;
 
             try
             {
-                string response = chatGPTAnswerTextBox.Text = 
-                    ChatGPTInterface.ChatGPTInterface.GetChatGPTAnswerForQuestion(askChatGPTTextBox.Text, 
-                        lowDetailRadioButton.Checked, _configuration);
-
+                (string response, List<KnowledgeRecordBasicContent> contextList) = 
+                    _chatGPT.GetChatGPTAnswerForQuestion(askChatGPTTextBox.Text, lowDetailRadioButton.Checked);
+                  
                 if(response.Trim().ToLower().StartsWith("i don't know"))
                 {
                     response = _configuration["NoResponse"];
                 }
 
                 chatGPTAnswerTextBox.Text = response;
+                if(contextList.Count > 0)
+                {
+                    contextPanel.Visible = true;
+                    contextListBox.DataSource = contextList;
+                    contextListBox.DisplayMember = "DisplayText";
+                    contextListBox.SelectedIndex = -1;
+                } else
+                {
+                    contextPanel.Visible = false;
+                }
             }
             catch (Exception q)
             {
@@ -93,6 +114,17 @@ namespace TrainingDataChatGPTApp
         private void lotsOfDetailRadioButton_CheckedChanged(object sender, EventArgs e)
         {
             lowDetailRadioButton.Checked = !lotsDetailRadioButton.Checked;
+        }
+
+        private void contextListBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (contextListBox.SelectedItem is KnowledgeRecordBasicContent selectedRecord)
+            {
+                contextDetailTextBox.Text = selectedRecord.Title + "\n" + selectedRecord.Content;
+            } else
+            {
+                contextDetailTextBox.Text = "";
+            }
         }
     }
 }

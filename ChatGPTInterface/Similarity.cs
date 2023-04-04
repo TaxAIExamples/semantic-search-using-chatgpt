@@ -8,7 +8,7 @@ namespace ChatGPTInterface
 {
     public class Similarity
     {
-        public int KnowledgeVectorId { get; set; }
+        public int KnowledgeRecordId { get; set; }
         public double SimilarityScore { get; set; }
         public int Tokens { get; set; }
         public string Text { get; set; }

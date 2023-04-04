@@ -11,16 +11,25 @@ using System.Transactions;
 
 namespace ChatGPTInterface
 {
-    public class KnowledgeRecordManager
+    public class KnowledgeRecordManager : IKnowledgeRecordManager
     {
-        private readonly AppDBContext context;
-        public KnowledgeRecordManager(IConfiguration configuration)
+        private readonly ApplicationDbContext _context;
+        private readonly IChatGPT _chatGpt;
+        private readonly IConfiguration _configuration;
+
+        public KnowledgeRecordManager(
+            IConfiguration configuration,
+            ApplicationDbContext context,
+            IChatGPT chatGpt
+            )
         {
-            context = new AppDBContext(configuration);
-            context.Database.EnsureCreated();
+            _configuration = configuration;
+            _context = context;
+            _chatGpt = chatGpt;
+            _context.Database.EnsureCreated();
         }
 
-        public KnowledgeRecord AddRecord(KnowledgeRecord newRecord, IConfiguration configuration)
+        public KnowledgeRecord AddRecord(KnowledgeRecord newRecord)
         {
             KnowledgeRecord recordAdded;
 
@@ -33,7 +42,7 @@ namespace ChatGPTInterface
 
                     // Ahora, tenemos que conseguir los encodings del text
 
-                    var embeddingResult = ChatGPTInterface.GetEmbedding(newRecord.Content, configuration);
+                    var embeddingResult = _chatGpt.GetEmbedding(newRecord.Content);
 
                     if (embeddingResult == null)
                     {
@@ -51,9 +60,9 @@ namespace ChatGPTInterface
                         newRecord.KnowledgeVector.Add(new KnowledgeVectorItem() { Id = 0, VectorValue = item });
                     }
 
-                    recordAdded = context.KnowledgeRecords.Add(newRecord).Entity;
+                    recordAdded = _context.KnowledgeRecords.Add(newRecord).Entity;
 
-                    context.SaveChanges();
+                    _context.SaveChanges();
 
                     transactionScope.Complete();
 
@@ -68,7 +77,7 @@ namespace ChatGPTInterface
             }
         }
 
-        public void ModifyRecord(KnowledgeRecord record, IConfiguration configuration)
+        public void ModifyRecord(KnowledgeRecord record)
         {
             using (var transactionScope = new TransactionScope())
             {
@@ -82,12 +91,12 @@ namespace ChatGPTInterface
                     {
                         foreach (var item in record.KnowledgeVector)
                         {
-                            context.KnowledgeVectorItems.Remove(item);
+                            _context.KnowledgeVectorItems.Remove(item);
                         }
                     }
 
                     // Ahora, tenemos que conseguir los encodings del text
-                    var embeddingResult = ChatGPTInterface.GetEmbedding(record.Content, configuration);
+                    var embeddingResult = _chatGpt.GetEmbedding(record.Content);
 
                     if (embeddingResult == null)
                     {
@@ -105,9 +114,9 @@ namespace ChatGPTInterface
                         record.KnowledgeVector.Add(new KnowledgeVectorItem() { Id = 0, VectorValue = item });
                     }
 
-                    context.KnowledgeRecords.Update(record);
+                    _context.KnowledgeRecords.Update(record);
 
-                    context.SaveChanges();
+                    _context.SaveChanges();
 
                     transactionScope.Complete();
                 }
@@ -125,7 +134,7 @@ namespace ChatGPTInterface
             {
                 try
                 {
-                    KnowledgeRecord? recordToDelete = context.KnowledgeRecords
+                    KnowledgeRecord? recordToDelete = _context.KnowledgeRecords
                         .Where(p => p.Id == id)
                         .Include(p => p.KnowledgeVector)
                         .AsTracking()
@@ -137,13 +146,13 @@ namespace ChatGPTInterface
                         {
                             foreach (var item in recordToDelete.KnowledgeVector)
                             {
-                                context.KnowledgeVectorItems.Remove(item);
+                                _context.KnowledgeVectorItems.Remove(item);
                             }
                         }
 
-                        context.KnowledgeRecords.Remove(recordToDelete);
+                        _context.KnowledgeRecords.Remove(recordToDelete);
 
-                        context.SaveChanges();
+                        _context.SaveChanges();
                     }
 
                     transactionScope.Complete();
@@ -158,24 +167,24 @@ namespace ChatGPTInterface
 
         public List<KnowledgeRecord> GetAllRecordsNoTracking()
         {
-            return context.KnowledgeRecords
+            return _context.KnowledgeRecords
                 .AsNoTracking()
                 .ToList();
         }
 
         public KnowledgeRecord GetSingleRecord(int id)
         {
-            return context.KnowledgeRecords.Find(id);
+            return _context.KnowledgeRecords.Find(id);
         }
 
         public KnowledgeRecord GetSingleRecordNoTrackin(int id)
         {
-            return context.KnowledgeRecords.Where(p => p.Id == id).AsNoTracking().FirstOrDefault();
+            return _context.KnowledgeRecords.Where(p => p.Id == id).AsNoTracking().FirstOrDefault();
         }
 
         public List<KnowledgeRecord> GetAllRecordsNoTracking(string searchTerm)
         {
-            return context.KnowledgeRecords
+            return _context.KnowledgeRecords
                 .Where(r => EF.Functions.Like(r.Title, "%" + searchTerm + "%") || EF.Functions.Like(r.Content, "%" + searchTerm + "%"))
                 .AsNoTracking()
                 .ToList();

@@ -2,6 +2,7 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using SemanticSearch;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,9 +11,21 @@ using System.Threading.Tasks;
 
 namespace ChatGPTInterface
 {
-    public class ChatGPTInterface
+    public class ChatGPT : IChatGPT
     {
-        static public EmbeddingResponse GetEmbedding(string embedding, IConfiguration configuration)
+        private readonly IConfiguration _configuration;
+        private readonly ApplicationDbContext _context;
+
+        public ChatGPT(
+            IConfiguration configuration,
+            ApplicationDbContext context
+            )
+        {
+            _configuration = configuration;
+            _context = context;
+        }
+
+        public EmbeddingResponse GetEmbedding(string embedding)
         {
             string apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
             if (apiKey == null)
@@ -20,8 +33,7 @@ namespace ChatGPTInterface
                 throw new Exception("OPEN AI KEY not available");
             }
 
-            // TODO:  Get this from some configuration or environment variable
-            string apiUrl = configuration.GetSection("Embeddings")["URL"];
+            string apiUrl = _configuration.GetSection("Embeddings").GetValue<string>("URL");
 
             // Create a new HttpClient instance
             HttpClient client = new HttpClient();
@@ -33,8 +45,9 @@ namespace ChatGPTInterface
             client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
             // Create the JSON payload
-            var payload = new { 
-                model = configuration.GetSection("Embeddings")["Model"],
+            var payload = new
+            {
+                model = _configuration.GetSection("Embeddings").GetValue<string>("Model"),
                 input = embedding
             };
             var jsonPayload = Newtonsoft.Json.JsonConvert.SerializeObject(payload);
@@ -68,22 +81,22 @@ namespace ChatGPTInterface
             }
         }
 
-        public static double[] GetEmbeddingScores(string embedding, IConfiguration configuration)
+        double[] GetEmbeddingScores(string embedding)
         {
-            EmbeddingResponse response = GetEmbedding(embedding, configuration);
+            EmbeddingResponse response = GetEmbedding(embedding);
             return (response.Data[0].Embedding);
         }
 
-        private static List<Similarity> GetSimilarityScoreForQuestion(string question, IConfiguration configuration)
+        private List<Similarity> GetSimilarityScoreForQuestion(string question)
         {
-            double[] questionEmbeddings = GetEmbeddingScores(question, configuration);
+            double[] questionEmbeddings = GetEmbeddingScores(question);
             string stringVector = string.Join(",", questionEmbeddings);
 
             // Set up connection string
-            string connectionString = configuration["DatabaseConnectionString"];
+            string connectionString = _configuration.GetConnectionString("DefaultConnection");
 
             // Set up SQL command
-            string commandText = configuration.GetSection("Similarity")["SimilarityScoreSPName"];
+            string commandText = _configuration.GetSection("Similarity").GetValue<string>("SimilarityScoreSPName");
             SqlCommand command = new SqlCommand(commandText);
             command.CommandType = System.Data.CommandType.StoredProcedure;
 
@@ -93,7 +106,7 @@ namespace ChatGPTInterface
             command.Parameters.Add(csvListParam);
 
             SqlParameter maxResultsParam = new SqlParameter("@maxResults", System.Data.SqlDbType.Int);
-            maxResultsParam.Value = Convert.ToInt32(configuration.GetSection("Similarity")["MaxResults"]);
+            maxResultsParam.Value = _configuration.GetSection("Similarity").GetValue<int>("MaxResults");
             command.Parameters.Add(maxResultsParam);
 
             // Set up connection
@@ -110,7 +123,7 @@ namespace ChatGPTInterface
             {
                 resultList.Add(new Similarity
                 {
-                    KnowledgeVectorId = Convert.ToInt32(reader["id"]),
+                    KnowledgeRecordId = Convert.ToInt32(reader["id"]),
                     SimilarityScore = Convert.ToDouble(reader["similarity"])
                 }
                 );
@@ -123,25 +136,36 @@ namespace ChatGPTInterface
             return resultList;
         }
 
-        private static string GetContextForQuestion(string question, IConfiguration configuration)
+        private (string context, List<KnowledgeRecordBasicContent> contextList) GetContextForQuestion(string question)
         {
-            List<Similarity> resultList = GetSimilarityScoreForQuestion(question, configuration);
-            if(resultList.Count == 0)
+            List<Similarity> resultList = GetSimilarityScoreForQuestion(question);
+            if (resultList.Count == 0)
             {
-                return "";
+                return ("", new List<KnowledgeRecordBasicContent>());
             }
 
-            KnowledgeRecordManager recordManager = new KnowledgeRecordManager(configuration);
-
+            List<KnowledgeRecordBasicContent> theContextList = new List<KnowledgeRecordBasicContent>();
+            double similarityScoreThreshold = _configuration.GetSection("Completions").GetValue<double>("MinSimilarityThreshold");
             // Add the number of tokens to each result
             foreach (var item in resultList)
             {
-                KnowledgeRecord theRecord = recordManager.GetSingleRecordNoTrackin(item.KnowledgeVectorId);
+                KnowledgeRecord theRecord = _context.KnowledgeRecords.Where(p => p.Id == item.KnowledgeRecordId).AsNoTracking().FirstOrDefault();
                 item.Tokens = theRecord.Tokens;
                 item.Text = theRecord.Content;
+
+                if(item.SimilarityScore >= similarityScoreThreshold)
+                {
+                    theContextList.Add(new KnowledgeRecordBasicContent()
+                    {
+                        ID = item.KnowledgeRecordId,
+                        Title = theRecord.Title,
+                        Content = theRecord.Content,
+                        SimilarityScore = item.SimilarityScore
+                    });
+                }
             }
-            
-            int maxSectionLen = Convert.ToInt32(configuration.GetSection("Completions")["MaxSectionLen"]);
+
+            int maxSectionLen = _configuration.GetSection("Completions").GetValue<int>("MaxSectionLen");
             string separator = "\n* ";
 
             List<int> tokens = GPT3Tokenizer.Encode(separator);
@@ -169,15 +193,16 @@ namespace ChatGPTInterface
                 }
             }
 
-            return context.ToString();
+            return (context.ToString(), theContextList);
         }
 
-        private static string GetPromptForQuestion(string question, bool briefDetails, IConfiguration configuration)
+        private (string prompt, List<KnowledgeRecordBasicContent> contextList) GetPromptForQuestion(string question, bool briefDetails)
         {
-            string context = GetContextForQuestion(question, configuration);
-            if(String.IsNullOrEmpty(context))
+            (string context, List<KnowledgeRecordBasicContent> contextList) = GetContextForQuestion(question);
+
+            if (String.IsNullOrEmpty(context))
             {
-                return "";
+                return ("", new List<KnowledgeRecordBasicContent>());
             }
 
             // TODO:  Get this from some configuration or environment variable
@@ -195,10 +220,10 @@ namespace ChatGPTInterface
 
             header = header + "  The Context ends with the string \">>>>>\"\r\n\r\nContext: <<<<< \r\n";
 
-            return header + context + "\r\n>>>>>\r\n\r\n Question: " + question + "\r\n Answer:";
+            return (header + context + "\r\n>>>>>\r\n\r\n Question: " + question + "\r\n Answer:", contextList);
         }
 
-        public static string GetChatGPTAnswerForQuestion(string question, bool briefDetails, IConfiguration configuration)
+        public (string answer, List<KnowledgeRecordBasicContent> contextList) GetChatGPTAnswerForQuestion(string question, bool briefDetails)
         {
             string apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
             if (apiKey == null)
@@ -206,7 +231,7 @@ namespace ChatGPTInterface
                 throw new Exception("OPEN AI KEY not available");
             }
 
-            string apiUrl = configuration.GetSection("Completions")["URL"];
+            string apiUrl = _configuration.GetSection("Completions").GetValue<string>("URL");
 
             // Create a new HttpClient instance
             HttpClient client = new HttpClient();
@@ -218,19 +243,19 @@ namespace ChatGPTInterface
             client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
             // Create the JSON payload
-            string prompt = GetPromptForQuestion(question, briefDetails, configuration);
+            (string prompt, List<KnowledgeRecordBasicContent> contextList) = GetPromptForQuestion(question, briefDetails);
 
             if (String.IsNullOrEmpty(prompt))
             {
-                return "I don't know";
+                return ("I don't know", new List<KnowledgeRecordBasicContent>());
             }
 
             var payload = new
             {
-                model = configuration.GetSection("Completions")["Model"],
+                model = _configuration.GetSection("Completions").GetValue<string>("Model"),
                 prompt = prompt,
-                max_tokens = configuration.GetSection("Completions")["Model"],
-                temperature = configuration.GetSection("Completions")["Temperature"]
+                max_tokens = _configuration.GetSection("Completions").GetValue<int>("MaxTokens"),
+                temperature = _configuration.GetSection("Completions").GetValue<int>("Temperature")
             };
 
             var jsonPayload = Newtonsoft.Json.JsonConvert.SerializeObject(payload);
@@ -260,7 +285,7 @@ namespace ChatGPTInterface
                     throw new Exception($"Error: completionResponse is null");
                 }
 
-                return completionResponse.Choices[0].Text;
+                return (completionResponse.Choices[0].Text, contextList);
             }
             else
             {

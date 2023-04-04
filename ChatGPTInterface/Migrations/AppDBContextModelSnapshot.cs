@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace ChatGPTInterface.Migrations
 {
-    [DbContext(typeof(AppDBContext))]
+    [DbContext(typeof(ApplicationDbContext))]
     partial class AppDBContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)

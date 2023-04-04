@@ -34,6 +34,11 @@
             this.chatGPTAnswerTextBox = new System.Windows.Forms.TextBox();
             this.lowDetailRadioButton = new System.Windows.Forms.RadioButton();
             this.lotsDetailRadioButton = new System.Windows.Forms.RadioButton();
+            this.contextPanel = new System.Windows.Forms.Panel();
+            this.contextDetailTextBox = new System.Windows.Forms.TextBox();
+            this.contextListBox = new System.Windows.Forms.ListBox();
+            this.textBox1 = new System.Windows.Forms.TextBox();
+            this.contextPanel.SuspendLayout();
             this.SuspendLayout();
             // 
             // label6
@@ -74,7 +79,7 @@
             this.chatGPTAnswerTextBox.Name = "chatGPTAnswerTextBox";
             this.chatGPTAnswerTextBox.ReadOnly = true;
             this.chatGPTAnswerTextBox.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.chatGPTAnswerTextBox.Size = new System.Drawing.Size(1083, 502);
+            this.chatGPTAnswerTextBox.Size = new System.Drawing.Size(542, 502);
             this.chatGPTAnswerTextBox.TabIndex = 23;
             // 
             // lowDetailRadioButton
@@ -103,11 +108,54 @@
             this.lotsDetailRadioButton.UseVisualStyleBackColor = true;
             this.lotsDetailRadioButton.CheckedChanged += new System.EventHandler(this.lotsOfDetailRadioButton_CheckedChanged);
             // 
+            // contextPanel
+            // 
+            this.contextPanel.Controls.Add(this.contextDetailTextBox);
+            this.contextPanel.Controls.Add(this.contextListBox);
+            this.contextPanel.Controls.Add(this.textBox1);
+            this.contextPanel.Location = new System.Drawing.Point(560, 86);
+            this.contextPanel.Name = "contextPanel";
+            this.contextPanel.Size = new System.Drawing.Size(536, 502);
+            this.contextPanel.TabIndex = 26;
+            // 
+            // contextDetailTextBox
+            // 
+            this.contextDetailTextBox.Enabled = false;
+            this.contextDetailTextBox.Location = new System.Drawing.Point(5, 136);
+            this.contextDetailTextBox.Multiline = true;
+            this.contextDetailTextBox.Name = "contextDetailTextBox";
+            this.contextDetailTextBox.ScrollBars = System.Windows.Forms.ScrollBars.Horizontal;
+            this.contextDetailTextBox.Size = new System.Drawing.Size(529, 366);
+            this.contextDetailTextBox.TabIndex = 2;
+            // 
+            // contextListBox
+            // 
+            this.contextListBox.FormattingEnabled = true;
+            this.contextListBox.ItemHeight = 15;
+            this.contextListBox.Location = new System.Drawing.Point(3, 51);
+            this.contextListBox.Name = "contextListBox";
+            this.contextListBox.Size = new System.Drawing.Size(533, 79);
+            this.contextListBox.TabIndex = 1;
+            this.contextListBox.SelectedIndexChanged += new System.EventHandler(this.contextListBox_SelectedIndexChanged);
+            // 
+            // textBox1
+            // 
+            this.textBox1.Location = new System.Drawing.Point(3, 5);
+            this.textBox1.Multiline = true;
+            this.textBox1.Name = "textBox1";
+            this.textBox1.ReadOnly = true;
+            this.textBox1.Size = new System.Drawing.Size(530, 40);
+            this.textBox1.TabIndex = 0;
+            this.textBox1.Text = "The following knowledge base articles are deemed to be most relevant to answer th" +
+    "is question.  If you would like to read these knowledge base articles, please cl" +
+    "ick on the titles below:";
+            // 
             // MainSearchForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1108, 600);
+            this.Controls.Add(this.contextPanel);
             this.Controls.Add(this.lotsDetailRadioButton);
             this.Controls.Add(this.lowDetailRadioButton);
             this.Controls.Add(this.chatGPTAnswerTextBox);
@@ -116,6 +164,8 @@
             this.Controls.Add(this.label6);
             this.Name = "MainSearchForm";
             this.Text = "Main Form";
+            this.contextPanel.ResumeLayout(false);
+            this.contextPanel.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -128,5 +178,9 @@
         private TextBox chatGPTAnswerTextBox;
         private RadioButton lowDetailRadioButton;
         private RadioButton lotsDetailRadioButton;
+        private Panel contextPanel;
+        private TextBox contextDetailTextBox;
+        private ListBox contextListBox;
+        private TextBox textBox1;
     }
 }

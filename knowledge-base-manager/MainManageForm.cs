@@ -11,14 +11,18 @@ namespace TrainingDataChatGPTApp
 {
     public partial class MainManageForm : Form
     {
-        private KnowledgeRecordManager? recordManager;
+        private IKnowledgeRecordManager _recordManager;
         private string searchTerm;
         private int selectedId = 0;
         private readonly IConfiguration _configuration;
 
-        public MainManageForm(IConfiguration configuration)
+        public MainManageForm(
+            IConfiguration configuration,
+            IKnowledgeRecordManager recordManager
+            )
         {
             InitializeComponent();
+            _recordManager = recordManager;
             _configuration = configuration;
         }
 
@@ -26,7 +30,6 @@ namespace TrainingDataChatGPTApp
         {
             base.OnLoad(e);
 
-            recordManager = new KnowledgeRecordManager(_configuration);
             RefreshList();
         }
 
@@ -46,7 +49,7 @@ namespace TrainingDataChatGPTApp
                     Title = titleTextBox.Text.Trim()
                 };
 
-                KnowledgeRecord theRecord = recordManager.AddRecord(trainingRecord, _configuration);
+                KnowledgeRecord theRecord = _recordManager.AddRecord(trainingRecord);
                 selectedId = theRecord.Id;
 
                 ClearRecord();
@@ -63,14 +66,15 @@ namespace TrainingDataChatGPTApp
             List<KnowledgeRecord> records;
             if (string.IsNullOrEmpty(searchTerm))
             {
-                records = recordManager.GetAllRecordsNoTracking();
+                records = _recordManager.GetAllRecordsNoTracking();
             }
             else
             {
-                records = recordManager.GetAllRecordsNoTracking(searchTerm);
+                records = _recordManager.GetAllRecordsNoTracking(searchTerm);
             }
             registrosLabel.Text = records.Count.ToString();
             trainingRecordDataGridView.DataSource = records;
+            trainingRecordDataGridView.CurrentCell = null;
             RefreshControlState();
         }
 
@@ -81,8 +85,8 @@ namespace TrainingDataChatGPTApp
             {
                 KnowledgeRecord selectedRecord = (KnowledgeRecord)trainingRecordDataGridView.SelectedRows[0].DataBoundItem;
                 idTextBox.Text = selectedRecord.Id.ToString();
-                titleTextBox.Text = selectedRecord.Content;
-                contentTextBox.Text = selectedRecord.Title;
+                titleTextBox.Text = selectedRecord.Title;
+                contentTextBox.Text = selectedRecord.Content;
                 selectedId = selectedRecord.Id;
             }
 
@@ -136,10 +140,10 @@ namespace TrainingDataChatGPTApp
                 return;
             }
 
-            KnowledgeRecord record = recordManager.GetSingleRecord(id);
+            KnowledgeRecord record = _recordManager.GetSingleRecord(id);
             record.Content = contentTextBox.Text.Trim();
             record.Title = titleTextBox.Text.Trim();
-            recordManager.ModifyRecord(record, _configuration);
+            _recordManager.ModifyRecord(record);
 
             selectedId = record.Id;
             RefreshList();
@@ -160,7 +164,7 @@ namespace TrainingDataChatGPTApp
                 return;
             }
 
-            recordManager.DeleteRecord(id);
+            _recordManager.DeleteRecord(id);
             ClearRecord();
             selectedId = 0;
             RefreshList();
@@ -181,6 +185,7 @@ namespace TrainingDataChatGPTApp
             titleTextBox.Text = "";
             contentTextBox.Text = "";
             selectedId = 0;
+            trainingRecordDataGridView.CurrentCell = null;
         }
 
         private void searchButton_Click(object sender, EventArgs e)

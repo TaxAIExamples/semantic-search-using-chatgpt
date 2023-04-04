@@ -51,7 +51,8 @@ namespace ChatGPTInterface.Migrations
                 column: "KnowledgeRecordId");
 
             var sqlFile = "sql/CalculateLargestConsineSimilarities.sql";
-            migrationBuilder.Sql(File.ReadAllText(sqlFile, Encoding.UTF8));
+            string sqlProc = File.ReadAllText(sqlFile, Encoding.UTF8);
+            migrationBuilder.Sql(sqlProc);
         }
 
         /// <inheritdoc />

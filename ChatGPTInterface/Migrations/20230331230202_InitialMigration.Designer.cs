@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace ChatGPTInterface.Migrations
 {
-    [DbContext(typeof(AppDBContext))]
+    [DbContext(typeof(ApplicationDbContext))]
     [Migration("20230331230202_InitialMigration")]
     partial class InitialMigration
     {
